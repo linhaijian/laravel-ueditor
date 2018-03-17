@@ -2,7 +2,9 @@
 
 /*
  * This file is part of the overtrue/laravel-ueditor.
+ *
  * (c) overtrue <i@overtrue.me>
+ *
  * This source file is subject to the MIT license that is bundled
  * with this source code in the file LICENSE.
  */
@@ -61,8 +63,10 @@ class StorageManager
 
         $filename = $this->getFilename($file, $config);
 
-        $modifiedFilename = event(new Uploading($file, $filename, $config), [], true);
-        $filename = !is_null($modifiedFilename) ? $modifiedFilename : $filename;
+        if ($this->eventSupport()) {
+            $modifiedFilename = event(new Uploading($file, $filename, $config), [], true);
+            $filename = !is_null($modifiedFilename) ? $modifiedFilename : $filename;
+        }
 
         $this->store($file, $filename);
 
@@ -75,9 +79,19 @@ class StorageManager
             'size' => $file->getSize(),
         ];
 
-        event(new Uploaded($file, $response));
+        if ($this->eventSupport()) {
+            event(new Uploaded($file, $response));
+        }
 
         return response()->json($response);
+    }
+
+    /**
+     * @return bool
+     */
+    public function eventSupport()
+    {
+        return trait_exists('Illuminate\Foundation\Events\Dispatchable');
     }
 
     /**
@@ -152,7 +166,7 @@ class StorageManager
         } elseif ($file->getSize() > $config['max_size']) {
             $error = 'upload.ERROR_SIZE_EXCEED';
         } elseif (!empty($config['allow_files']) &&
-            !in_array('.'.$file->guessExtension(), $config['allow_files'])) {
+            !in_array('.'.$file->getClientOriginalExtension(), $config['allow_files'])) {
             $error = 'upload.ERROR_TYPE_NOT_ALLOWED';
         }
 
@@ -203,6 +217,7 @@ class StorageManager
                     'allow_files' => array_get($upload, $prefix.'AllowFiles', []),
                     'path_format' => array_get($upload, $prefix.'PathFormat'),
                 ];
+
                 break;
             }
         }
